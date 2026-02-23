@@ -261,11 +261,3 @@ NOTIFY_EMAIL=your@email.com    # Notification email address
 - [ ] Implement lead scoring system
 
 ---
-
-## License
-
-MIT
-
----
-
-**Built with n8n v1.x+ and Groq llama-3.3-70b-versatile**
