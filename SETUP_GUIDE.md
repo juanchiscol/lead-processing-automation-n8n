@@ -283,5 +283,3 @@ Formulario/Postman
 | Duplicados no se detectan | Verifica que la columna se llame exactamente **"Email"** |
 
 ---
-
-*Creado para n8n v1.x+ con Groq llama-3.3-70b-versatile*

@@ -1,23 +1,64 @@
-# 🚀 Guía de Setup — Automatización de Leads con n8n + Groq
+# 🚀 Lead Processing Automation with n8n + Groq AI
 
-## Lo que vas a tener al final
+## Project Overview
 
-Un pipeline que recibe leads por webhook, los clasifica con IA (Groq LLaMA 3.3 70B) y guarda todo en Google Sheets automáticamente.
+I built an automated lead processing system that receives leads through webhooks, classifies them using AI (Groq LLaMA 3.3 70B), and stores everything in Google Sheets automatically.
 
-![Vista del Workflow en n8n](Captura%20de%20pantalla%202026-02-23%20174818.png)
+![n8n Workflow View](Captura%20de%20pantalla%202026-02-23%20174818.png)
 
 ---
 
-## PASO 1 — Instalar n8n (elige una opción)
+## Tech Stack
 
-### Opción A: n8n Cloud (más fácil, sin servidor)
-1. Ve a **https://n8n.io** → "Get started for free"
-2. Crea tu cuenta
-3. Listo, ya tienes n8n corriendo ✅
+- **n8n**: Workflow automation platform
+- **Groq API**: AI classification using LLaMA 3.3 70B (70B params model)
+- **Google Sheets**: Data storage and management
+- **Gmail**: Automated email responses
 
-### Opción B: Docker en tu servidor (gratis, self-hosted)
+---
+
+## How It Works
+
+### Architecture
+
+```
+Webhook Endpoint
+       ↓
+  Email Validation
+       ↓
+  Duplicate Check (Google Sheets)
+       ↓
+  AI Classification (Groq LLaMA 3.3 70B)
+       ↓
+  Priority Assignment
+       ↓
+  Save to Google Sheets
+       ↓
+  Send Categorized Email Response
+       ↓
+  Return Success/Error JSON
+```
+
+### Features
+
+✅ **Email validation** with regex pattern matching  
+✅ **Duplicate detection** to prevent repeat entries  
+✅ **AI-powered classification** into categories: Sales, Support, Information, Spam  
+✅ **Automatic priority assignment** (High/Medium/Low) based on category  
+✅ **Error logging** in separate sheet for failed validations  
+✅ **Automated email responses** customized by category  
+✅ **RESTful API** with proper status codes (200, 400, 409)
+
+---
+
+## Setup Instructions
+
+### 1. n8n Installation
+
+I used **n8n Cloud** for this project, but it can also be self-hosted with Docker:
+
 ```bash
-# Crea el archivo docker-compose.yml
+# Docker setup (optional)
 mkdir n8n-leads && cd n8n-leads
 
 cat > docker-compose.yml << 'EOF'
@@ -31,7 +72,7 @@ services:
     environment:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=admin
-      - N8N_BASIC_AUTH_PASSWORD=TuPasswordSeguro123!
+      - N8N_BASIC_AUTH_PASSWORD=YourSecurePassword123!
       - GROQ_API_KEY=${GROQ_API_KEY}
       - GOOGLE_SHEET_ID=${GOOGLE_SHEET_ID}
       - NOTIFY_EMAIL=${NOTIFY_EMAIL}
@@ -41,141 +82,61 @@ volumes:
   n8n_data:
 EOF
 
-# Copia tu .env.example como .env y llena los valores
-cp .env.example .env
-nano .env   # Edita con tus valores reales
-
-# Levanta n8n
 docker compose up -d
-
-# Abre en tu navegador:
-# http://localhost:5678
 ```
 
----
+### 2. Groq API Configuration
 
-## PASO 2 — Obtener tu API Key de Groq
+I chose Groq for AI classification because of its generous free tier and fast inference:
 
-1. Ve a **https://console.groq.com**
-2. Inicia sesión o crea cuenta gratuita (con GitHub o Gmail)
-3. Menú izquierdo → **"API Keys"** o **"Developers"**
-4. Clic en **"Create API Key"** → dale un nombre: "n8n-leads"
-5. **Copia la key** (solo se muestra una vez) — empieza con `gsk_...`
-6. Pégala en tu `.env` como `GROQ_API_KEY=gsk_...`
+1. Created account at **https://console.groq.com**
+2. Generated API key (starts with `gsk_...`)
+3. Configured as environment variable in n8n: `GROQ_API_KEY`
 
-> ⚠️ Groq ofrece un tier gratuito muy generoso. Con el modelo **llama-3.3-70b-versatile**, puedes procesar miles de leads sin costo. Límite: ~14,400 requests/día en tier gratuito.
+**Cost**: Free tier allows ~14,400 requests/day with **llama-3.3-70b-versatile** model
 
----
+### 3. Google Sheets Structure
 
-## PASO 3 — Configurar Google Sheets
+Created a spreadsheet with two tabs:
 
-### 3a. Crear la hoja de cálculo
-1. Ve a **https://sheets.google.com**
-2. Crea una hoja nueva → nómbrala **"Leads Sistema"**
-3. Crea **dos pestañas** (tabs):
-   - **`Leads_DB`** — aquí van los leads válidos
-   - **`Errores`** — aquí van los que fallan validación
-
-### 3b. Encabezados de Leads_DB (fila 1)
-| A | B | C | D | E | F | G | H | I | J |
-|---|---|---|---|---|---|---|---|---|---|
+**Leads_DB** (valid leads):
 | Fecha | Nombre | Email | Telefono | Categoria | Prioridad | Resumen | Confianza IA | Fuente | Mensaje Original |
 
-### 3c. Encabezados de Errores (fila 1)
-| A | B | C | D | E |
-|---|---|---|---|---|
+**Errores** (validation failures):
 | Fecha | Nombre | Email Recibido | Error | Payload Completo |
 
-### 3d. Obtener el ID de la hoja
-La URL de tu hoja se ve así:
+### 4. OAuth2 Credentials
+
+Connected the following services in n8n Settings → Credentials:
+- Google Sheets OAuth2 API
+- Gmail OAuth2
+
+---
+
+## API Usage
+
+### Endpoint
+
 ```
-https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms/edit
-                                       ↑ ESTE ES TU SHEET ID
-```
-Cópialo y ponlo en `.env` como `GOOGLE_SHEET_ID=...`
-
----
-
-## PASO 4 — Conectar Google Sheets en n8n
-
-1. En n8n, ve a **Settings → Credentials**
-2. Clic en **"Add Credential"**
-3. Busca **"Google Sheets OAuth2 API"**
-4. Sigue el flujo de autorización con tu cuenta de Google
-5. Dale permisos de lectura y escritura a Sheets
-6. Guarda con el nombre **"Google Sheets Account"**
-
----
-
-## PASO 5 — Conectar Gmail en n8n
-
-1. En n8n → **Settings → Credentials**
-2. Clic en **"Add Credential"**
-3. Busca **"Gmail OAuth2"**
-4. Autoriza con tu cuenta de Gmail
-5. Guarda con el nombre **"Gmail Account"**
-
-> 💡 Alternativa: Si prefieres usar SMTP (Outlook, otro proveedor), cambia los nodos de Gmail por nodos "Send Email" con SMTP.
-
----
-
-## PASO 6 — Importar el Workflow
-
-1. Abre n8n en tu navegador
-2. Menú izquierdo → **"Workflows"**
-3. Clic en **"Import from file"**
-4. Sube el archivo **`leads_workflow.json`**
-5. El workflow se abre con todos los nodos ya conectados
-
----
-
-## PASO 7 — Configurar Variables de Entorno en n8n
-
-1. En n8n → **Settings → n8n Settings**
-2. Busca **"Variables"**
-3. Agrega estas variables:
-   - `GROQ_API_KEY` = tu key de Groq (empieza con gsk_...)
-   - `GOOGLE_SHEET_ID` = ID de tu hoja
-   - `NOTIFY_EMAIL` = tu email de notificaciones
-
----
-
-## PASO 8 — Activar el Workflow y Obtener URL del Webhook
-
-1. Abre el workflow importado
-2. Clic en el nodo **"📥 Webhook Entrada"**
-3. Copia la **"Production URL"** — se ve así:
-   ```
-   https://tudominio.com/webhook/leads-entrantes
-   ```
-4. Clic en el toggle de arriba a la derecha para **activar** el workflow
-
----
-
-## PASO 9 — Probar con Postman
-
-### Instalar Postman
-Descarga en: https://www.postman.com/downloads/
-
-### Request de prueba
-```
-Método:  POST
-URL:     https://tudominio.com/webhook/leads-entrantes
-Headers: Content-Type: application/json
+POST https://your-n8n-instance.com/webhook/leads-entrantes
+Content-Type: application/json
 ```
 
-**Body (raw → JSON):**
+### Request Example
+
 ```json
 {
-  "nombre":   "Ana García",
-  "email":    "ana.garcia@empresa.com",
+  "nombre": "Ana García",
+  "email": "ana.garcia@empresa.com",
   "telefono": "+52 55 1234 5678",
-  "mensaje":  "Hola, me interesa una demostración de su producto para mi equipo de 50 personas. ¿Cuáles son los planes enterprise?",
-  "fuente":   "landing-page"
+  "mensaje": "Hello, I'm interested in a demo for my team of 50 people. What are the enterprise plans?",
+  "fuente": "landing-page"
 }
 ```
 
-**Respuesta esperada (200):**
+### Response Examples
+
+**Success (200)**
 ```json
 {
   "success": true,
@@ -189,14 +150,7 @@ Headers: Content-Type: application/json
 }
 ```
 
-### Prueba de error (email vacío)
-```json
-{
-  "nombre":  "Sin Email",
-  "mensaje": "Prueba sin email"
-}
-```
-**Respuesta esperada (400):**
+**Validation Error (400)**
 ```json
 {
   "success": false,
@@ -204,82 +158,114 @@ Headers: Content-Type: application/json
 }
 ```
 
-### Prueba de duplicado (mismo email dos veces)
-Envía el mismo request dos veces → segunda vez responde 409.
-
----
-
-## PASO 10 — Conectar tu Formulario Web (opcional)
-
-Si tienes un formulario HTML, solo agrega esto al `submit`:
-
-```javascript
-// En tu formulario HTML
-async function enviarLead(event) {
-  event.preventDefault();
-  
-  const data = {
-    nombre:   document.getElementById('nombre').value,
-    email:    document.getElementById('email').value,
-    telefono: document.getElementById('telefono').value,
-    mensaje:  document.getElementById('mensaje').value,
-    fuente:   'formulario-web'
-  };
-
-  const response = await fetch('https://tudominio.com/webhook/leads-entrantes', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(data)
-  });
-
-  const result = await response.json();
-  
-  if (result.success) {
-    alert('¡Gracias! Te contactaremos pronto.');
-  } else {
-    alert('Error: ' + result.error);
-  }
+**Duplicate (409)**
+```json
+{
+  "success": false,
+  "error": "Este email ya fue registrado anteriormente"
 }
 ```
 
 ---
 
-## Flujo completo resumido
+## AI Classification Logic
+
+I configured the Groq API with a custom system prompt:
 
 ```
-Formulario/Postman
-       ↓
-  [Webhook n8n]
-       ↓
-  ¿Tiene email válido? ──NO──→ Registrar error en Sheets → Responder 400
-       ↓ SÍ
-  ¿Email ya existe en Sheets? ──SÍ──→ Responder 409 (duplicado)
-       ↓ NO
-  [Groq AI clasifica el mensaje con LLaMA 3.3 70B]
-       ↓
-  Asignar prioridad (Alta/Media/Baja)
-       ↓
-  Guardar en Google Sheets
-       ↓
-  Router por categoría
-  ├── Ventas      → Email personalizado de ventas
-  ├── Soporte     → Email con ticket de soporte
-  ├── Información → Email con recursos y docs
-  └── Spam        → Solo registrar, no enviar email
-       ↓
-  Responder 200 OK
+You are a B2B lead classifier. Analyze the message and respond ONLY with valid JSON without markdown.
+Exact structure: {"categoria": "Ventas | Soporte | Informacion | Spam", "resumen": "max 15 words", "confianza": 0.95}
+
+- Sales: buy/contract/pay/invoice
+- Support: error/not working/technical problem
+- Information: general info/how it works
+- Spam: bot/promotional/nonsense
+```
+
+Priority mapping:
+- **Sales** → Medium
+- **Support** → High
+- **Information** → Medium
+- **Spam** → Low
+
+---
+
+## Testing
+
+I tested the workflow with Postman:
+
+```bash
+# Valid lead
+curl -X POST https://your-instance.com/webhook/leads-entrantes \
+  -H "Content-Type: application/json" \
+  -d '{"nombre":"Test","email":"test@example.com","mensaje":"Need a quote"}'
+
+# Invalid email
+curl -X POST https://your-instance.com/webhook/leads-entrantes \
+  -H "Content-Type: application/json" \
+  -d '{"nombre":"Test","mensaje":"No email field"}'
+
+# Duplicate
+# Send same request twice
 ```
 
 ---
 
-## Troubleshooting común
+## Workflow Nodes
 
-| Problema | Solución |
-|----------|----------|
-| Webhook no responde | Verifica que el workflow esté **activado** (toggle ON) |
-| Error de Google Sheets | Reconecta las credenciales OAuth2 en Settings |
-| Groq no clasifica bien | Ajusta el system prompt en el nodo "Clasificar con Groq" |
-| Email no llega | Revisa carpeta de spam / reconecta Gmail OAuth2 |
-| Duplicados no se detectan | Verifica que la columna se llame exactamente **"Email"** |
+The n8n workflow consists of:
+
+1. **Webhook Entrada** - Receives POST requests
+2. **Validar Email** - Regex validation for email format
+3. **Registrar Error en Sheets** - Logs validation failures
+4. **Buscar Email Duplicado** - Checks existing emails in sheet
+5. **Clasificar con Groq** - HTTP request to Groq API
+6. **Procesar y Asignar Prioridad** - Parses AI response and assigns priority
+7. **Guardar en Sheets** - Appends to Leads_DB
+8. **Router por Categoría** - Routes to appropriate email template
+9. **Enviar Email [Ventas/Soporte/etc]** - Sends categorized responses
+10. **Responder Success** - Returns 200 with JSON
 
 ---
+
+## Challenges & Solutions
+
+**Challenge**: GitHub blocked my push due to exposed API key in workflow  
+**Solution**: Replaced hardcoded key with environment variable `{{ $env.GROQ_API_KEY }}`, cleaned Git history with orphan branch
+
+**Challenge**: Groq sometimes returns markdown-wrapped JSON  
+**Solution**: Added `.replace(/```json|```/g, '').trim()` before parsing
+
+**Challenge**: Email duplicate detection was case-sensitive  
+**Solution**: Normalized emails with `.toLowerCase().trim()` in comparison
+
+---
+
+## Environment Variables
+
+```bash
+GROQ_API_KEY=gsk_...           # Groq API key
+GOOGLE_SHEET_ID=1BxiMVs...     # Google Sheets document ID
+NOTIFY_EMAIL=your@email.com    # Notification email address
+```
+
+---
+
+## Future Improvements
+
+- [ ] Add webhook signature validation for security
+- [ ] Implement rate limiting
+- [ ] Add Slack/Discord notifications for high-priority leads
+- [ ] Create dashboard for lead analytics
+- [ ] Add multi-language support for AI classification
+- [ ] Implement lead scoring system
+
+---
+
+## License
+
+MIT
+
+---
+
+**Built with n8n v1.x+ and Groq llama-3.3-70b-versatile**
