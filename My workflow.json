@@ -1,0 +1,918 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "leads-entrantes",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "24e80a80-0832-49c1-9fc5-3e84d3407d02",
+      "name": "Webhook Entrada",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        336,
+        784
+      ],
+      "webhookId": "leads-entrantes"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "check-email-exists",
+              "leftValue": "={{ $json.body.email }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            },
+            {
+              "id": "check-email-format",
+              "leftValue": "={{ $json.body.email }}",
+              "rightValue": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "37555811-b95f-4850-8b67-2c724184d406",
+      "name": "Validar Email",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        560,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, error: 'El campo email es obligatorio y debe tener formato valido', campo_recibido: $('Webhook Entrada').item.json.body.email || null }) }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "6f76655e-961a-4efe-b63e-f5aab1a69145",
+      "name": "Responder Error 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        784,
+        1008
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1sH7vbBljRoaNEpMCrvmMeX_q3JDY3ovnGuq7oT6weaA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1102126599,
+          "mode": "list",
+          "cachedResultName": "Errores"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Fecha": "={{ $now.toISO() }}",
+            "Email Recibido": "={{ $('Webhook Entrada').item.json.body.email || 'VACÍO' }}",
+            "Error": "=Email ausente o con formato invalido",
+            "Payload Completo": "={{ JSON.stringify($('Webhook Entrada').item.json.body) }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Fecha",
+              "displayName": "Fecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Nombre ",
+              "displayName": "Nombre ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Email Recibido",
+              "displayName": "Email Recibido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Error",
+              "displayName": "Error",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Payload Completo",
+              "displayName": "Payload Completo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "0a205fdb-9526-490f-9ad7-f7a7564b9003",
+      "name": "Registrar Error en Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1008,
+        1008
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rCGJX4fbqwV4qj9H",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const webhookData = $(\"Webhook Entrada\").first().json.body;\nconst emailBuscado = webhookData.email;\nconst rows = $input.all();\n\nconst duplicate = rows.some(row => {\n  const rowEmail = row.json.Email || row.json.email || row.json.EMAIL || '';\n  return rowEmail.toLowerCase().trim() === emailBuscado.toLowerCase().trim();\n});\n\nreturn {\n  isDuplicate: duplicate,\n  nombre:   webhookData.nombre   || 'Sin nombre',\n  email:    emailBuscado,\n  telefono: webhookData.telefono || '',\n  mensaje:  webhookData.mensaje  || '',\n  fuente:   webhookData.fuente   || 'webhook'\n};"
+      },
+      "id": "c6be4412-a35c-422e-b8fd-13e74d0065bc",
+      "name": "Buscar Email Duplicado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "check-dup",
+              "leftValue": "={{ $json.isDuplicate }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0facf890-588b-4813-8163-9eb2feb7586b",
+      "name": "¿Es Duplicado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1200,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, message: 'Este email ya fue registrado previamente', email: $('Webhook Entrada').item.json.body.email }) }}",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "id": "dcf726b0-327d-43cd-b5e2-497295561e33",
+      "name": "Responder Duplicado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        1088,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $env.GROQ_API_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"llama-3.3-70b-versatile\",\n  \"max_tokens\": 300,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un clasificador de leads B2B. Analiza el mensaje y responde UNICAMENTE con JSON valido sin markdown. Estructura exacta: {\\\"categoria\\\": \\\"Ventas | Soporte | Informacion | Spam\\\", \\\"resumen\\\": \\\"maximo 15 palabras\\\", \\\"confianza\\\": 0.95}. Ventas=comprar/contratar/pagar/factura, Soporte=error/no funciona/problema tecnico, Informacion=info general/como funciona, Spam=bot/promocional/sin sentido.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"={{ 'Nombre: ' + $json.nombre + '\\\\nEmail: ' + $json.email + '\\\\nMensaje: ' + $json.mensaje }}\"\n    }\n  ]\n}",
+        "options": {}
+      },
+      "id": "a1f6efca-297c-4d42-a597-df0bee0e414e",
+      "name": "Clasificar con Groq",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1472,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\n\n// OpenAI devuelve: choices[0].message.content\nconst rawText = response.choices[0].message.content;\n\nlet clasificacion;\ntry {\n  const cleaned = rawText.replace(/```json|```/g, '').trim();\n  clasificacion = JSON.parse(cleaned);\n} catch(e) {\n  clasificacion = { categoria: 'Informacion', resumen: 'No se pudo clasificar', confianza: 0.0 };\n}\n\nconst prioridadMap = {\n  'Ventas':      'Media',\n  'Soporte':     'Alta',\n  'Informacion': 'Media',\n  'Spam':        'Baja',\n  'Urgente':     'Alta'\n};\n\nconst leadData = $('Buscar Email Duplicado').first().json;\n\nreturn {\n  nombre:    leadData.nombre,\n  email:     leadData.email,\n  telefono:  leadData.telefono  || '',\n  mensaje:   leadData.mensaje   || '',\n  fuente:    leadData.fuente    || 'webhook',\n  categoria:  clasificacion.categoria,\n  resumen:    clasificacion.resumen,\n  confianza:  clasificacion.confianza,\n  prioridad:  prioridadMap[clasificacion.categoria] || 'Media',\n  fecha: new Date().toLocaleString('es-MX', {\n    timeZone: 'America/Mexico_City',\n    year: 'numeric', month: '2-digit', day: '2-digit',\n    hour: '2-digit', minute: '2-digit'\n  })\n};"
+      },
+      "id": "23c68a24-7f1d-4415-bed7-02cbcdbba5af",
+      "name": "Procesar y Asignar Prioridad",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1440,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1sH7vbBljRoaNEpMCrvmMeX_q3JDY3ovnGuq7oT6weaA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 0,
+          "mode": "list",
+          "cachedResultName": "Leads_DB"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Fecha": "={{ $json.fecha }}",
+            "Nombre": "={{ $json.nombre }}",
+            "Email": "={{ $json.email }}",
+            "Telefono": "={{ $json.telefono }}",
+            "Categoria": "={{ $json.categoria }}",
+            "Prioridad": "={{ $json.prioridad }}",
+            "Resumen": "={{ $json.resumen }}",
+            "Confianza IA": "={{ $json.confianza }}",
+            "Fuente": "={{ $json.fuente }}",
+            "Mensaje Original": "={{ $json.mensaje }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Fecha",
+              "displayName": "Fecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Nombre",
+              "displayName": "Nombre",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Telefono",
+              "displayName": "Telefono",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Categoria",
+              "displayName": "Categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Prioridad",
+              "displayName": "Prioridad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Resumen",
+              "displayName": "Resumen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Confianza IA",
+              "displayName": "Confianza IA",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Fuente",
+              "displayName": "Fuente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Mensaje Original",
+              "displayName": "Mensaje Original",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "668518a9-d74b-42cf-bcb2-5edd56db7239",
+      "name": "Guardar en Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        1664,
+        864
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rCGJX4fbqwV4qj9H",
+          "name": "Google Sheets Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.Categoria}}",
+                    "rightValue": "=Ventas",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "4c3f71a7-bfc7-4e49-a83b-c6127b2b9941"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Ventas"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.Categoria}}",
+                    "rightValue": "Soporte",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "481e39a4-93f9-49e9-90d5-574a3abbad37"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Soporte"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.Categoria}}",
+                    "rightValue": "Informacion",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "178e48d1-e002-4562-983d-778c561bb93d"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Informacion"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.Categoria}}",
+                    "rightValue": "Spam",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    },
+                    "id": "4aca9eec-eed0-43c7-b75d-6241206317bc"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Spam"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "id": "3a0cca64-69a8-4a06-8d15-5bbeb460fa75",
+      "name": "Router por Categoria",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        1824,
+        816
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Email }}",
+        "subject": "=¡Hola {{ $json.Nombre }}, gracias por tu interés!",
+        "message": "=<html><body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;\">\n<div style=\"background: #1E3A5F; padding: 20px; border-radius: 8px 8px 0 0;\">\n  <h1 style=\"color: white; margin: 0; font-size: 24px;\">¡Nos da mucho gusto saber de ti!</h1>\n</div>\n<div style=\"background: #f9f9f9; padding: 30px; border: 1px solid #e0e0e0;\">\n  <p style=\"font-size: 16px; color: #333;\">Hola <strong>{{ $json.Nombre }}</strong>,</p>\n  <p style=\"color: #555;\">Recibimos tu mensaje y ya está en manos de nuestro equipo de <strong>ventas</strong>. Un especialista se comunicará contigo en las próximas <strong>2 horas hábiles</strong>.</p>\n  <div style=\"background: #EBF5FB; border-left: 4px solid #2E86C1; padding: 15px; margin: 20px 0;\">\n    <strong>Lo que nos dijiste:</strong><br>\n    <em style=\"color: #555;\">{{ $json.Resumen }}</em>\n  </div>\n  <p style=\"color: #888; font-size: 13px; margin-top: 30px;\">Prioridad asignada: <strong>{{ $json.Prioridad }}</strong> | Ref: {{ $json.Email }}</p>\n</div>\n\n</body></html>",
+        "options": {
+          "ccList": "jchiscol@unprg.edu.pe"
+        }
+      },
+      "id": "a2b5e94b-d67f-4340-b3c0-a032aa41e85e",
+      "name": "Email Ventas",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2096,
+        688
+      ],
+      "webhookId": "851f59cd-25d5-4d67-8e5f-c6bd6b64a104",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hepQKudeu4eitvSx",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Email }}",
+        "subject": "=Ticket de soporte creado — {{ $json.Nombre }}",
+        "message": "=<html><body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;\">\n<div style=\"background: #C0392B; padding: 20px; border-radius: 8px 8px 0 0;\">\n  <h1 style=\"color: white; margin: 0; font-size: 24px;\">Ticket de Soporte Creado</h1>\n</div>\n<div style=\"background: #f9f9f9; padding: 30px; border: 1px solid #e0e0e0;\">\n  <p style=\"font-size: 16px; color: #333;\">Hola <strong>{{ $json.Nombre }}</strong>,</p>\n  <p style=\"color: #555;\">Registramos tu solicitud de soporte técnico. Nuestro equipo tiene esto como <strong>prioridad ALTA</strong> y te contactará en máximo <strong>4 horas hábiles</strong>.</p>\n  <div style=\"background: #FADBD8; border-left: 4px solid #C0392B; padding: 15px; margin: 20px 0;\">\n    <strong>Tu consulta:</strong><br>\n    <em style=\"color: #555;\">{{ $json.Resumen }}</em>\n  </div>\n  <p style=\"color: #555;\">Para seguimiento inmediato escríbenos a:<br>\n  <a href=\"mailto:soporte@tuempresa.com\" style=\"color: #C0392B;\">soporte@tuempresa.com</a></p>\n  <p style=\"color: #888; font-size: 13px; margin-top: 30px;\">Ticket ID: SUP-{{ $now.toMillis() }} | Prioridad: ALTA</p>\n</div>\n</body></html>",
+        "options": {
+          "ccList": "jchiscol@unprg.edu.pe"
+        }
+      },
+      "id": "ddad1f1f-9a40-4003-b2a2-c75cef51f789",
+      "name": "Email Soporte",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2096,
+        848
+      ],
+      "webhookId": "b110fe1c-38ae-4121-bbac-6c7f43b088ce",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hepQKudeu4eitvSx",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.Email }}",
+        "subject": "=📚 Informacion solicitada — {{ $json.Nombre }}",
+        "message": "=<html><body style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;\">\n<div style=\"background: #1E8449; padding: 20px; border-radius: 8px 8px 0 0;\">\n  <h1 style=\"color: white; margin: 0; font-size: 24px;\">Aquí está la info que necesitas</h1>\n</div>\n<div style=\"background: #f9f9f9; padding: 30px; border: 1px solid #e0e0e0;\">\n  <p style=\"font-size: 16px; color: #333;\">Hola <strong>{{ $json.Nombre }}</strong>,</p>\n  <p style=\"color: #555;\">Gracias por contactarnos. Basándonos en tu consulta (<em>{{ $json.Resumen }}</em>), te compartimos los recursos más relevantes:</p>\n</div>\n\n</body></html>",
+        "options": {
+          "ccList": "jchiscol@unprg.edu.pe"
+        }
+      },
+      "id": "4951bdf9-e6a1-4cd8-a971-44c47b1f3214",
+      "name": "Email Informacion",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2096,
+        1008
+      ],
+      "webhookId": "8f5551b8-3834-4164-965b-ea49864c48a2",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "hepQKudeu4eitvSx",
+          "name": "Gmail Account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// SPAM — Solo logueamos, NO enviamos email\nconst item = $input.first().json;\nconsole.log(`[SPAM DETECTADO] Email: ${item.email} | Confianza: ${item.confianza} | Resumen: ${item.resumen}`);\nreturn { ...item, accion: 'SPAM_DESCARTADO', emailEnviado: false };\n"
+      },
+      "id": "585f20d1-c7e4-4bfb-ace0-db937a02829e",
+      "name": "Spam Solo Registrar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2096,
+        1168
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, message: 'Lead procesado correctamente', data: { nombre: $('Procesar y Asignar Prioridad').item.json.nombre, categoria: $('Procesar y Asignar Prioridad').item.json.categoria, prioridad: $('Procesar y Asignar Prioridad').item.json.prioridad, resumen: $('Procesar y Asignar Prioridad').item.json.resumen } }) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "63de1d13-93d4-4c30-90be-390f5d46839e",
+      "name": "Responder 200 OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2320,
+        864
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1sH7vbBljRoaNEpMCrvmMeX_q3JDY3ovnGuq7oT6weaA",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 0,
+          "mode": "list",
+          "cachedResultName": "Leads_DB"
+        },
+        "options": {}
+      },
+      "id": "ec1f6b20-2c2e-4970-bb1e-0e9ded457bc0",
+      "name": "Leer Emails Registrados",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        784,
+        784
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "rCGJX4fbqwV4qj9H",
+          "name": "Google Sheets Account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Webhook Entrada": [
+      {
+        "json": {
+          "headers": {
+            "host": "chiscol.app.n8n.cloud",
+            "user-agent": "PostmanRuntime/7.44.0",
+            "content-length": "254",
+            "accept": "*/*",
+            "accept-encoding": "gzip, br",
+            "cache-control": "no-cache",
+            "cdn-loop": "cloudflare; loops=1; subreqs=1",
+            "cf-connecting-ip": "38.56.219.101",
+            "cf-ew-via": "15",
+            "cf-ipcountry": "PE",
+            "cf-ray": "9d009cfca2eec199-EZE",
+            "cf-visitor": "{\"scheme\":\"https\"}",
+            "cf-worker": "n8n.cloud",
+            "content-type": "application/json",
+            "postman-token": "9ef51970-7de7-444e-98de-2c665bc14155",
+            "x-forwarded-for": "38.56.219.101, 198.41.230.106",
+            "x-forwarded-host": "chiscol.app.n8n.cloud",
+            "x-forwarded-port": "443",
+            "x-forwarded-proto": "https",
+            "x-forwarded-server": "traefik-prod-users-gwc-40-669b86c79-bd7h8",
+            "x-is-trusted": "yes",
+            "x-real-ip": "38.56.219.101"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "nombre": "Roberto Mendoza",
+            "email": null,
+            "telefono": "998877665",
+            "mensaje": "Quiero contratar el plan enterprise ahora mismo, necesito la factura y los datos de pago para proceder hoy.",
+            "fuente": "landing-page"
+          },
+          "webhookUrl": "https://chiscol.app.n8n.cloud/webhook/leads-entrantes",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook Entrada": {
+      "main": [
+        [
+          {
+            "node": "Validar Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar Email": {
+      "main": [
+        [
+          {
+            "node": "Leer Emails Registrados",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder Error 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder Error 400": {
+      "main": [
+        [
+          {
+            "node": "Registrar Error en Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Email Duplicado": {
+      "main": [
+        [
+          {
+            "node": "¿Es Duplicado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es Duplicado?": {
+      "main": [
+        [
+          {
+            "node": "Responder Duplicado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clasificar con Groq",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Procesar y Asignar Prioridad": {
+      "main": [
+        [
+          {
+            "node": "Guardar en Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Guardar en Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Router por Categoria",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router por Categoria": {
+      "main": [
+        [
+          {
+            "node": "Email Ventas",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Soporte",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Email Informacion",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Spam Solo Registrar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Ventas": {
+      "main": [
+        [
+          {
+            "node": "Responder 200 OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Soporte": {
+      "main": [
+        [
+          {
+            "node": "Responder 200 OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Email Informacion": {
+      "main": [
+        [
+          {
+            "node": "Responder 200 OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spam Solo Registrar": {
+      "main": [
+        [
+          {
+            "node": "Responder 200 OK",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clasificar con Groq": {
+      "main": [
+        [
+          {
+            "node": "Procesar y Asignar Prioridad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer Emails Registrados": {
+      "main": [
+        [
+          {
+            "node": "Buscar Email Duplicado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "7f4ceac6-7c01-47f9-ae5a-96c1fabdb553",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7ac47d3f4cabbbd1d8d021b861da56805207388a86407345884a3bdc628283fb"
+  },
+  "id": "YpiXTKjnmrzk0iu5",
+  "tags": []
+}
